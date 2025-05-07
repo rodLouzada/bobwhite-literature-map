@@ -1,6 +1,5 @@
 ﻿const DATA_URL = 'bobert_openalex_enhanced.json';
 
-const DATA_URL = 'crp_openalex_with_states.json';
 
 let allRecords = [], filteredRecords = [], recordMap = {};
 let currentPage = 1, pageSize = 10, currentSeed = null;
