@@ -75,7 +75,7 @@
 
     <div class="container py-4">
 
-        <!-- Filters Card -->
+        <!-- Filters -->
         <div class="card mb-4 shadow-sm">
             <div class="card-body">
                 <h5 class="card-title">Filters</h5>
@@ -89,15 +89,26 @@
                         <input type="date" id="end-date" class="form-control">
                     </div>
 
-                    <!-- Themes -->
+                    <!-- Primary Fields -->
                     <div class="col-12">
                         <button type="button" class="btn btn-outline-success"
-                                data-bs-toggle="collapse" data-bs-target="#themes-col">
-                            Themes <span id="theme-count" class="badge bg-success ms-1">0</span>
+                                data-bs-toggle="collapse" data-bs-target="#fields-col">
+                            Fields <span id="field-count" class="badge bg-success ms-1">0</span>
                         </button>
                     </div>
-                    <div class="col-12 collapse" id="themes-col">
-                        <div id="theme-filters" class="mt-2"></div>
+                    <div class="col-12 collapse" id="fields-col">
+                        <div id="field-filters" class="mt-2"></div>
+                    </div>
+
+                    <!-- Primary Domains -->
+                    <div class="col-12">
+                        <button type="button" class="btn btn-outline-success"
+                                data-bs-toggle="collapse" data-bs-target="#domains-col">
+                            Domains <span id="domain-count" class="badge bg-success ms-1">0</span>
+                        </button>
+                    </div>
+                    <div class="col-12 collapse" id="domains-col">
+                        <div id="domain-filters" class="mt-2"></div>
                     </div>
 
                     <!-- States -->
@@ -135,14 +146,15 @@
             </div>
         </div>
 
-        <!-- Search + CSV -->
+        <!-- Search / Clear / CSV -->
         <div class="input-group mb-4 shadow-sm">
             <input type="text" id="search" class="form-control" placeholder="Search by title…">
             <button id="search-btn" class="btn btn-success">Search</button>
+            <button id="clear-btn" class="btn btn-outline-danger">Clear Filters</button>
             <button id="download-csv" class="btn btn-secondary">Download CSV</button>
         </div>
 
-        <!-- Inline Graph Panel -->
+        <!-- Graph Panel -->
         <section id="graphPanel" class="container mb-4 d-none">
             <div class="card shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center bg-success text-white">
@@ -160,9 +172,9 @@
                         <button id="graph-regenerate" class="btn btn-outline-success">Regenerate</button>
                     </div>
                     <div class="mb-2">
-                        <span class="me-3"><span class="legend-dot bg-primary"></span> Selected paper</span>
-                        <span class="me-3"><span class="legend-dot bg-success"></span> Papers cited</span>
-                        <span><span class="legend-dot bg-warning"></span> Papers citing</span>
+                        <span class="me-3"><span class="legend-dot bg-primary"></span> Seed</span>
+                        <span class="me-3"><span class="legend-dot bg-success"></span> Cited</span>
+                        <span><span class="legend-dot bg-warning"></span> Citing</span>
                     </div>
                     <div id="cy" style="width:100%;height:600px;"></div>
                 </div>
