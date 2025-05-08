@@ -142,17 +142,24 @@
                         <label class="form-label">Max Citations</label>
                         <input type="number" id="max-cites" class="form-control" min="0" placeholder="1000">
                     </div>
+
+                    <!-- Clear / CSV -->
+                    <div class="input-group mb-4 shadow-sm">
+                        <button id="clear-btn" class="btn btn-outline-danger">Clear Filters</button>
+                        <button id="download-csv" class="btn btn-secondary">Download CSV</button>
+
+                    </div>
+
+                    <!-- Search -->
+                    <div class="input-group mb-4 shadow-sm">
+                        <input type="text" id="search" class="form-control" placeholder="Search by title…">
+                        <button id="search-btn" class="btn btn-success">Search</button>
+                    </div>
                 </form>
             </div>
         </div>
 
-        <!-- Search / Clear / CSV -->
-        <div class="input-group mb-4 shadow-sm">
-            <input type="text" id="search" class="form-control" placeholder="Search by title…">
-            <button id="search-btn" class="btn btn-success">Search</button>
-            <button id="clear-btn" class="btn btn-outline-danger">Clear Filters</button>
-            <button id="download-csv" class="btn btn-secondary">Download CSV</button>
-        </div>
+        
 
         <!-- Graph Panel -->
         <section id="graphPanel" class="container mb-4 d-none">
