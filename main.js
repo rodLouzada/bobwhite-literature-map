@@ -1,43 +1,53 @@
 ﻿const DATA_URL = 'bobert_openalex_enhanced.json';
 
-let allRecords = [];
-let filteredRecords = [];
-let recordMap = {};
-let currentPage = 1;
-const pageSize = 10;
-let currentSeed = null;
+let allRecords = [], filteredRecords = [], recordMap = {};
+let currentPage = 1, pageSize = 10, currentSeed = null;
 let currentGraphNodes = [];
 
 ; (async function init() {
-    // 1) Load data
-    const resp = await fetch(DATA_URL);
-    if (!resp.ok) throw new Error(resp.statusText);
-    const json = await resp.json();
+    // Load and index data
+    const res = await fetch(DATA_URL);
+    if (!res.ok) throw new Error(res.statusText);
+    const json = await res.json();
     allRecords = json.records || [];
-    // 2) Build lookup map
     allRecords.forEach(r => recordMap[r.id] = r);
 
-    // 3) Build our three collapsible filters
+    // Build our three collapsible filters
     buildFieldFilters(allRecords);
     buildDomainFilters(allRecords);
     buildStateFilters(allRecords);
 
-    // 4) Initial render
+    // Initial table+pagination
     filteredRecords = allRecords.slice();
     renderTable();
     renderPagination();
 
-    // 5) Wire up controls
-    document.getElementById('search-btn').onclick = onSearch;
-    document.getElementById('clear-btn').onclick = onClear;
-    document.getElementById('download-csv').onclick = () => downloadCSV(filteredRecords, 'crp_search.csv');
-    document.getElementById('download-graph-csv').onclick = () => downloadCSV(currentGraphNodes, 'crp_graph.csv');
+    // Search button — prevent form submit
+    document.getElementById('search-btn').addEventListener('click', e => {
+        e.preventDefault();
+        onSearch();
+    });
 
+    // Clear Filters
+    document.getElementById('clear-btn').addEventListener('click', e => {
+        e.preventDefault();
+        onClear();
+    });
+
+    // CSV downloads
+    document.getElementById('download-csv')
+        .addEventListener('click', () => downloadCSV(filteredRecords, 'crp_search.csv'));
+    document.getElementById('download-graph-csv')
+        .addEventListener('click', () => downloadCSV(currentGraphNodes, 'crp_graph.csv'));
+
+    // Table delegation
     document.getElementById('results').addEventListener('click', onTableClick);
+
+    // Graph controls
     document.getElementById('close-graph').onclick = () => document.getElementById('graphPanel').classList.add('d-none');
     document.getElementById('graph-regenerate').onclick = () => currentSeed && showGraph(currentSeed);
 
-    // allow Enter in search box
+    // Enter key in title search
     document.getElementById('search').addEventListener('keypress', e => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -47,65 +57,53 @@ let currentGraphNodes = [];
 })();
 
 function buildFieldFilters(records) {
-    const container = document.getElementById('field-filters');
-    const badge = document.getElementById('field-count');
-    const set = new Set();
-    records.forEach(r => {
-        const f = r.primary_topic.field;
-        if (f) set.add(f);
-    });
+    const c = document.getElementById('field-filters'),
+        badge = document.getElementById('field-count'),
+        set = new Set();
+    records.forEach(r => r.primary_topic.field && set.add(r.primary_topic.field));
     const list = Array.from(set).sort();
     badge.textContent = list.length;
     list.forEach(name => {
         const id = `field-${name.replace(/\W+/g, '_')}`;
-        const div = document.createElement('div');
-        div.className = 'form-check form-check-inline';
-        div.innerHTML = `
-      <input class="form-check-input" type="checkbox" id="${id}" value="${name}">
-      <label class="form-check-label" for="${id}">${name}</label>
-    `;
-        container.appendChild(div);
+        c.insertAdjacentHTML('beforeend', `
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="checkbox" id="${id}" value="${name}">
+        <label class="form-check-label" for="${id}">${name}</label>
+      </div>`);
     });
 }
 
 function buildDomainFilters(records) {
-    const container = document.getElementById('domain-filters');
-    const badge = document.getElementById('domain-count');
-    const set = new Set();
-    records.forEach(r => {
-        const d = r.primary_topic.domain;
-        if (d) set.add(d);
-    });
+    const c = document.getElementById('domain-filters'),
+        badge = document.getElementById('domain-count'),
+        set = new Set();
+    records.forEach(r => r.primary_topic.domain && set.add(r.primary_topic.domain));
     const list = Array.from(set).sort();
     badge.textContent = list.length;
     list.forEach(name => {
         const id = `domain-${name.replace(/\W+/g, '_')}`;
-        const div = document.createElement('div');
-        div.className = 'form-check form-check-inline';
-        div.innerHTML = `
-      <input class="form-check-input" type="checkbox" id="${id}" value="${name}">
-      <label class="form-check-label" for="${id}">${name}</label>
-    `;
-        container.appendChild(div);
+        c.insertAdjacentHTML('beforeend', `
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="checkbox" id="${id}" value="${name}">
+        <label class="form-check-label" for="${id}">${name}</label>
+      </div>`);
     });
 }
 
 function buildStateFilters(records) {
-    const container = document.getElementById('state-filters');
-    const badge = document.getElementById('state-count');
-    const set = new Set();
+    const c = document.getElementById('state-filters'),
+        badge = document.getElementById('state-count'),
+        set = new Set();
     records.forEach(r => (r.states || []).forEach(s => set.add(s)));
     const list = Array.from(set).sort();
     badge.textContent = list.length;
     list.forEach(name => {
         const id = `state-${name.replace(/\W+/g, '_')}`;
-        const div = document.createElement('div');
-        div.className = 'form-check form-check-inline';
-        div.innerHTML = `
-      <input class="form-check-input" type="checkbox" id="${id}" value="${name}">
-      <label class="form-check-label" for="${id}">${name}</label>
-    `;
-        container.appendChild(div);
+        c.insertAdjacentHTML('beforeend', `
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="checkbox" id="${id}" value="${name}">
+        <label class="form-check-label" for="${id}">${name}</label>
+      </div>`);
     });
 }
 
@@ -123,14 +121,11 @@ function onSearch() {
 }
 
 function onClear() {
-    // reset all form controls
     document.getElementById('filters').reset();
-    // uncheck all custom checkboxes
     ['field-filters', 'domain-filters', 'state-filters'].forEach(cid => {
         document.querySelectorAll(`#${cid} input:checked`).forEach(i => i.checked = false);
     });
     document.getElementById('search').value = '';
-    // restore full list
     filteredRecords = allRecords.slice();
     currentPage = 1;
     renderTable();
@@ -138,7 +133,9 @@ function onClear() {
 }
 
 function applyFilters() {
-    const titleQ = (document.getElementById('search').value || '').trim().toLowerCase();
+    // TITLE split into words
+    const titleRaw = (document.getElementById('search').value || '').trim().toLowerCase();
+    const titleTerms = titleRaw ? titleRaw.split(/\s+/) : [];
     const start = document.getElementById('start-date').value;
     const end = document.getElementById('end-date').value;
     const fields = getCheckedValues('field-filters');
@@ -151,7 +148,11 @@ function applyFilters() {
     const maxC = parseInt(document.getElementById('max-cites').value) || Infinity;
 
     filteredRecords = allRecords.filter(r => {
-        if (titleQ && !r.title.toLowerCase().includes(titleQ)) return false;
+        // Title: every term must appear
+        if (titleTerms.length) {
+            const t = r.title.toLowerCase();
+            if (!titleTerms.every(w => t.includes(w))) return false;
+        }
         if (start && r.publication_date < start) return false;
         if (end && r.publication_date > end) return false;
 
@@ -178,7 +179,6 @@ function applyFilters() {
         }
         const c = r.citation_counts.forward || 0;
         if (c < minC || c > maxC) return false;
-
         return true;
     });
 }
@@ -188,6 +188,7 @@ function renderTable() {
     tbody.innerHTML = '';
     const startIdx = (currentPage - 1) * pageSize;
     const pageRecs = filteredRecords.slice(startIdx, startIdx + pageSize);
+
     if (!pageRecs.length) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-center py-3">No records match filters.</td></tr>`;
         return;
@@ -213,30 +214,26 @@ function renderPagination() {
     const ul = document.getElementById('pagination');
     ul.innerHTML = '';
 
-    const makeItem = (label, disabled, clickHandler, active = false) => {
+    const make = (lbl, disc, fn, active = false) => {
         const li = document.createElement('li');
-        li.className = `page-item${disabled ? ' disabled' : ''}${active ? ' active' : ''}`;
+        li.className = `page-item${disc ? ' disabled' : ''}${active ? ' active' : ''}`;
         const btn = document.createElement('button');
-        btn.className = 'page-link';
-        btn.textContent = label;
-        if (!disabled) btn.onclick = clickHandler;
+        btn.className = 'page-link'; btn.textContent = lbl;
+        if (!disc) btn.onclick = fn;
         li.appendChild(btn);
         return li;
     };
 
-    ul.appendChild(makeItem('Prev', currentPage === 1, () => { currentPage--; updateView(); }));
-
-    // show up to 5 page numbers around current
-    let start = Math.max(1, currentPage - 2);
-    let end = Math.min(totalPages, currentPage + 2);
+    ul.appendChild(make('Prev', currentPage === 1, () => { currentPage--; updateView(); }));
+    let start = Math.max(1, currentPage - 2),
+        end = Math.min(totalPages, currentPage + 2);
     if (currentPage <= 3) end = Math.min(5, totalPages);
     if (currentPage >= totalPages - 2) start = Math.max(1, totalPages - 4);
 
     for (let p = start; p <= end; p++) {
-        ul.appendChild(makeItem(p, false, () => { currentPage = p; updateView(); }, p === currentPage));
+        ul.appendChild(make(p, false, () => { currentPage = p; updateView(); }, p === currentPage));
     }
-
-    ul.appendChild(makeItem('Next', currentPage === totalPages, () => { currentPage++; updateView(); }));
+    ul.appendChild(make('Next', currentPage === totalPages, () => { currentPage++; updateView(); }));
 }
 
 function updateView() {
@@ -246,11 +243,13 @@ function updateView() {
 
 function onTableClick(e) {
     if (e.target.classList.contains('details-btn')) {
-        const idx = (currentPage - 1) * pageSize + Array.from(e.target.closest('tbody').children).indexOf(e.target.closest('tr'));
+        const tr = e.target.closest('tr'),
+            idx = (currentPage - 1) * pageSize + Array.from(tr.parentNode.children).indexOf(tr);
         showDetails(filteredRecords[idx]);
     }
     if (e.target.classList.contains('network-btn')) {
-        const idx = (currentPage - 1) * pageSize + Array.from(e.target.closest('tbody').children).indexOf(e.target.closest('tr'));
+        const tr = e.target.closest('tr'),
+            idx = (currentPage - 1) * pageSize + Array.from(tr.parentNode.children).indexOf(tr);
         currentSeed = filteredRecords[idx];
         showGraph(currentSeed);
         document.getElementById('graphPanel').classList.remove('d-none');
@@ -261,7 +260,7 @@ function downloadCSV(records, filename) {
     const cols = ['url', 'is_oa', 'title', 'doi', 'type', 'journal', 'publication_year', 'keywords', 'authors'];
     const header = cols.join(',') + '\n';
     const lines = records.map(r => {
-        const map = {
+        const M = {
             url: r.url || '',
             is_oa: r.is_oa ? 'Yes' : 'No',
             title: `"${r.title.replace(/"/g, '""')}"`,
@@ -272,7 +271,7 @@ function downloadCSV(records, filename) {
             keywords: `"${(r.keywords || []).join('|').replace(/"/g, '""')}"`,
             authors: `"${r.authors.map(a => a.name).join('|').replace(/"/g, '""')}"`
         };
-        return cols.map(c => map[c]).join(',');
+        return cols.map(c => M[c]).join(',');
     });
     const blob = new Blob([header + lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -286,7 +285,7 @@ function showDetails(r) {
     mb.innerHTML = `
     <h5>${r.title}</h5>
     <p><strong>ID:</strong> ${r.id.split('/').pop()}</p>
-    <p><strong>Publication Date:</strong> ${r.publication_date || 'N/A'}</p>
+    <p><strong>Date:</strong> ${r.publication_date || 'N/A'}</p>
     <p><strong>Topics:</strong> ${(r.topics || []).map(t => t.name).join(', ')}</p>
     <p><strong>Keywords:</strong> ${(r.keywords || []).join(', ')}</p>
     <p><strong>States:</strong> ${(r.states || []).join(', ')}</p>
@@ -307,11 +306,11 @@ function showGraph(seed) {
         nodes.push({ data: { id, label, metaType: type } });
         currentGraphNodes.push(meta);
     }
-    function addEdge(src, tgt) {
-        const eid = `${src}->${tgt}`;
+    function addEdge(s, t) {
+        const eid = `${s}->${t}`;
         if (seenE.has(eid)) return;
         seenE.add(eid);
-        edges.push({ data: { id: eid, source: src, target: tgt } });
+        edges.push({ data: { id: eid, source: s, target: t } });
     }
 
     function recurse(id, lvl) {
@@ -350,12 +349,9 @@ function showGraph(seed) {
             { selector: 'node[metaType="seed"]', style: { 'background-color': '#0d6efd' } },
             { selector: 'node[metaType="backward"]', style: { 'background-color': 'green' } },
             { selector: 'node[metaType="forward"]', style: { 'background-color': 'yellow' } },
-            { selector: 'edge', style: { width: 2, 'line-color': '#999' } },
+            { selector: 'edge', style: { width: 2, 'line-color': '#999' } }
         ],
-        layout: {
-            name: 'cose', idealEdgeLength: 120, nodeOverlap: 40,
-            nodeRepulsion: 8000, gravity: 0.1, numIter: 500, tile: true
-        }
+        layout: { name: 'cose', idealEdgeLength: 120, nodeOverlap: 40, nodeRepulsion: 8000, gravity: 0.1, numIter: 500, tile: true }
     });
 
     cy.on('tap', 'node', evt => {
