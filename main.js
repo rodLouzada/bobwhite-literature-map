@@ -1,59 +1,52 @@
 ﻿const DATA_URL = 'bobert_openalex_enhanced.json';
 
+
 let allRecords = [], filteredRecords = [], recordMap = {};
 let currentPage = 1, pageSize = 10, currentSeed = null;
 let currentGraphNodes = [];
 
 ; (async function init() {
-    // Load and index data
-    const res = await fetch(DATA_URL);
-    if (!res.ok) throw new Error(res.statusText);
-    const json = await res.json();
+    // 1) Load data
+    const resp = await fetch(DATA_URL);
+    if (!resp.ok) throw new Error(resp.statusText);
+    const json = await resp.json();
     allRecords = json.records || [];
     allRecords.forEach(r => recordMap[r.id] = r);
 
-    // Build our three collapsible filters
+    // 2) Build filters
     buildFieldFilters(allRecords);
     buildDomainFilters(allRecords);
     buildStateFilters(allRecords);
 
-    // Initial table+pagination
+    // 3) Initial display
     filteredRecords = allRecords.slice();
     renderTable();
     renderPagination();
 
-    // Search button — prevent form submit
-    document.getElementById('search-btn').addEventListener('click', e => {
-        e.preventDefault();
-        onSearch();
-    });
+    // 4) Wire up buttons
+    document.getElementById('search-btn').addEventListener('click', onSearch);
+    document.getElementById('clear-btn').addEventListener('click', onClear);
+    document.getElementById('download-csv').addEventListener('click', () =>
+        downloadCSV(filteredRecords, 'crp_search.csv'));
+    document.getElementById('download-graph-csv').addEventListener('click', () =>
+        downloadCSV(currentGraphNodes, 'crp_graph.csv'));
 
-    // Clear Filters
-    document.getElementById('clear-btn').addEventListener('click', e => {
-        e.preventDefault();
-        onClear();
-    });
-
-    // CSV downloads
-    document.getElementById('download-csv')
-        .addEventListener('click', () => downloadCSV(filteredRecords, 'crp_search.csv'));
-    document.getElementById('download-graph-csv')
-        .addEventListener('click', () => downloadCSV(currentGraphNodes, 'crp_graph.csv'));
-
-    // Table delegation
-    document.getElementById('results').addEventListener('click', onTableClick);
-
-    // Graph controls
-    document.getElementById('close-graph').onclick = () => document.getElementById('graphPanel').classList.add('d-none');
-    document.getElementById('graph-regenerate').onclick = () => currentSeed && showGraph(currentSeed);
-
-    // Enter key in title search
+    // Enter key in title box
     document.getElementById('search').addEventListener('keypress', e => {
         if (e.key === 'Enter') {
             e.preventDefault();
             onSearch();
         }
     });
+
+    // Table delegation
+    document.getElementById('results').addEventListener('click', onTableClick);
+
+    // Graph controls
+    document.getElementById('close-graph').onclick = () =>
+        document.getElementById('graphPanel').classList.add('d-none');
+    document.getElementById('graph-regenerate').onclick = () =>
+        currentSeed && showGraph(currentSeed);
 })();
 
 function buildFieldFilters(records) {
@@ -133,9 +126,9 @@ function onClear() {
 }
 
 function applyFilters() {
-    // TITLE split into words
-    const titleRaw = (document.getElementById('search').value || '').trim().toLowerCase();
-    const titleTerms = titleRaw ? titleRaw.split(/\s+/) : [];
+    // Title search: split on whitespace, require each term
+    const raw = (document.getElementById('search').value || '').trim().toLowerCase();
+    const terms = raw ? raw.split(/\s+/).filter(w => w) : [];
     const start = document.getElementById('start-date').value;
     const end = document.getElementById('end-date').value;
     const fields = getCheckedValues('field-filters');
@@ -148,34 +141,31 @@ function applyFilters() {
     const maxC = parseInt(document.getElementById('max-cites').value) || Infinity;
 
     filteredRecords = allRecords.filter(r => {
-        // Title: every term must appear
-        if (titleTerms.length) {
+        // title terms
+        if (terms.length) {
             const t = r.title.toLowerCase();
-            if (!titleTerms.every(w => t.includes(w))) return false;
+            if (!terms.every(w => t.includes(w))) return false;
         }
         if (start && r.publication_date < start) return false;
         if (end && r.publication_date > end) return false;
-
         if (fields.length) {
-            const f = (r.primary_topic.field || '').toLowerCase();
-            if (!fields.includes(f)) return false;
+            if (!fields.includes((r.primary_topic.field || '').toLowerCase())) return false;
         }
         if (domains.length) {
-            const d = (r.primary_topic.domain || '').toLowerCase();
-            if (!domains.includes(d)) return false;
+            if (!domains.includes((r.primary_topic.domain || '').toLowerCase())) return false;
         }
         if (states.length) {
             const sList = (r.states || []).map(s => s.toLowerCase());
             if (!states.some(s => sList.includes(s))) return false;
         }
         if (authorQ) {
-            const aList = r.authors.map(a => a.name).join(' ').toLowerCase();
-            if (!aList.includes(authorQ)) return false;
+            const a = r.authors.map(a => a.name).join(' ').toLowerCase();
+            if (!a.includes(authorQ)) return false;
         }
         if (journalQ && !r.journal.toLowerCase().includes(journalQ)) return false;
         if (keywordQ) {
-            const kList = (r.keywords || []).join(' ').toLowerCase();
-            if (!kList.includes(keywordQ)) return false;
+            const k = (r.keywords || []).join(' ').toLowerCase();
+            if (!k.includes(keywordQ)) return false;
         }
         const c = r.citation_counts.forward || 0;
         if (c < minC || c > maxC) return false;
@@ -187,13 +177,12 @@ function renderTable() {
     const tbody = document.querySelector('#results tbody');
     tbody.innerHTML = '';
     const startIdx = (currentPage - 1) * pageSize;
-    const pageRecs = filteredRecords.slice(startIdx, startIdx + pageSize);
-
-    if (!pageRecs.length) {
+    const slice = filteredRecords.slice(startIdx, startIdx + pageSize);
+    if (!slice.length) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-center py-3">No records match filters.</td></tr>`;
         return;
     }
-    pageRecs.forEach(r => {
+    slice.forEach(r => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
       <td><a href="${r.url || '#'}" target="_blank">${r.title}</a></td>
@@ -214,26 +203,28 @@ function renderPagination() {
     const ul = document.getElementById('pagination');
     ul.innerHTML = '';
 
-    const make = (lbl, disc, fn, active = false) => {
+    const makeItem = (label, disabled, handler, active = false) => {
         const li = document.createElement('li');
-        li.className = `page-item${disc ? ' disabled' : ''}${active ? ' active' : ''}`;
+        li.className = `page-item${disabled ? ' disabled' : ''}${active ? ' active' : ''}`;
         const btn = document.createElement('button');
-        btn.className = 'page-link'; btn.textContent = lbl;
-        if (!disc) btn.onclick = fn;
+        btn.className = 'page-link'; btn.textContent = label;
+        if (!disabled) btn.onclick = handler;
         li.appendChild(btn);
         return li;
     };
 
-    ul.appendChild(make('Prev', currentPage === 1, () => { currentPage--; updateView(); }));
+    ul.appendChild(makeItem('Prev', currentPage === 1, () => { currentPage--; updateView(); }));
+
     let start = Math.max(1, currentPage - 2),
         end = Math.min(totalPages, currentPage + 2);
-    if (currentPage <= 3) end = Math.min(5, totalPages);
-    if (currentPage >= totalPages - 2) start = Math.max(1, totalPages - 4);
+    if (currentPage <= 3) start = 1, end = Math.min(5, totalPages);
+    if (currentPage >= totalPages - 2) start = Math.max(1, totalPages - 4), end = totalPages;
 
     for (let p = start; p <= end; p++) {
-        ul.appendChild(make(p, false, () => { currentPage = p; updateView(); }, p === currentPage));
+        ul.appendChild(makeItem(p, false, () => { currentPage = p; updateView(); }, p === currentPage));
     }
-    ul.appendChild(make('Next', currentPage === totalPages, () => { currentPage++; updateView(); }));
+
+    ul.appendChild(makeItem('Next', currentPage === totalPages, () => { currentPage++; updateView(); }));
 }
 
 function updateView() {
@@ -306,11 +297,11 @@ function showGraph(seed) {
         nodes.push({ data: { id, label, metaType: type } });
         currentGraphNodes.push(meta);
     }
-    function addEdge(s, t) {
-        const eid = `${s}->${t}`;
+    function addEdge(src, tgt) {
+        const eid = `${src}->${tgt}`;
         if (seenE.has(eid)) return;
         seenE.add(eid);
-        edges.push({ data: { id: eid, source: s, target: t } });
+        edges.push({ data: { id: eid, source: src, target: tgt } });
     }
 
     function recurse(id, lvl) {
@@ -341,7 +332,8 @@ function showGraph(seed) {
         style: [
             {
                 selector: 'node', style: {
-                    width: 90, height: 90, label: 'data(label)',
+                    width: 90, height: 90,
+                    label: 'data(label)',
                     'text-wrap': 'wrap', 'text-max-width': 150,
                     'font-size': 8, 'text-valign': 'center', color: '#000'
                 }
@@ -351,10 +343,13 @@ function showGraph(seed) {
             { selector: 'node[metaType="forward"]', style: { 'background-color': 'yellow' } },
             { selector: 'edge', style: { width: 2, 'line-color': '#999' } }
         ],
-        layout: { name: 'cose', idealEdgeLength: 120, nodeOverlap: 40, nodeRepulsion: 8000, gravity: 0.1, numIter: 500, tile: true }
+        layout: {
+            name: 'cose', idealEdgeLength: 120, nodeOverlap: 40,
+            nodeRepulsion: 8000, gravity: 0.1, numIter: 500, tile: true
+        }
     });
 
-    cy.on('tap', 'node', evt => {
-        document.getElementById('node-info').textContent = evt.target.data('label');
-    });
+    cy.on('tap', 'node', evt =>
+        document.getElementById('node-info').textContent = evt.target.data('label')
+    );
 }
