@@ -126,75 +126,65 @@ function onClear() {
 }
 
 function applyFilters() {
-    // Title search: split on whitespace, require each term
-    const raw = (document.getElementById('search').value || '')
+    // 1) Collect raw inputs
+    const rawSearch = document.getElementById('search')?.value || '';
+    const terms = rawSearch
         .trim()
-        .toLowerCase();
-    const terms = raw ? raw.split(/\s+/).filter(w => w) : [];
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(w => !!w);
 
-    const start = document.getElementById('start-date').value;
-    const end = document.getElementById('end-date').value;
+    const start = document.getElementById('start-date')?.value || '';
+    const end = document.getElementById('end-date')?.value || '';
     const fields = getCheckedValues('field-filters');
     const domains = getCheckedValues('domain-filters');
     const states = getCheckedValues('state-filters');
-    const authorQ = (document.getElementById('author-filter').value || '').toLowerCase();
-    const journalQ = (document.getElementById('journal-filter').value || '').toLowerCase();
-    const keywordQ = (document.getElementById('keyword-filter').value || '').toLowerCase();
-    const minC = parseInt(document.getElementById('min-cites').value) || 0;
-    const maxC = parseInt(document.getElementById('max-cites').value) || Infinity;
+    const authorQ = (document.getElementById('author-filter')?.value || '').toLowerCase();
+    const journalQ = (document.getElementById('journal-filter')?.value || '').toLowerCase();
+    const keywordQ = (document.getElementById('keyword-filter')?.value || '').toLowerCase();
+    const minC = parseInt(document.getElementById('min-cites')?.value) || 0;
+    const maxC = parseInt(document.getElementById('max-cites')?.value) || Infinity;
 
     filteredRecords = allRecords.filter(r => {
-        // 1) Title terms (guard against missing title)
-        if (terms.length) {
-            const t = (r.title || '').toLowerCase();
-            if (!terms.every(w => t.includes(w))) return false;
+        // Title search (must have every term)
+        const title = (r.title || '').toLowerCase();
+        if (terms.length && !terms.every(w => title.includes(w))) {
+            return false;
         }
 
-        // 2) Date range
-        if (start && (r.publication_date || '') < start) return false;
-        if (end && (r.publication_date || '') > end) return false;
+        // Date range
+        const pub = r.publication_date || '';
+        if (start && pub < start) return false;
+        if (end && pub > end) return false;
 
-        // 3) Field
-        if (fields.length) {
-            const f = (r.primary_topic.field || '').toLowerCase();
-            if (!fields.includes(f)) return false;
-        }
+        // Primary topic → field
+        const field = ((r.primary_topic || {}).field || '').toLowerCase();
+        if (fields.length && !fields.includes(field)) return false;
 
-        // 4) Domain
-        if (domains.length) {
-            const d = (r.primary_topic.domain || '').toLowerCase();
-            if (!domains.includes(d)) return false;
-        }
+        // Primary topic → domain
+        const domain = ((r.primary_topic || {}).domain || '').toLowerCase();
+        if (domains.length && !domains.includes(domain)) return false;
 
-        // 5) States
+        // States
         if (states.length) {
             const sList = (r.states || []).map(s => s.toLowerCase());
             if (!states.some(s => sList.includes(s))) return false;
         }
 
-        // 6) Author
-        if (authorQ) {
-            const aList = (r.authors || [])
-                .map(a => a.name || '')
-                .join(' ')
-                .toLowerCase();
-            if (!aList.includes(authorQ)) return false;
-        }
+        // Author
+        const aList = (r.authors || []).map(a => (a.name || '')).join(' ').toLowerCase();
+        if (authorQ && !aList.includes(authorQ)) return false;
 
-        // 7) Journal (guard null)
-        if (journalQ) {
-            const j = (r.journal || '').toLowerCase();
-            if (!j.includes(journalQ)) return false;
-        }
+        // Journal
+        const journ = (r.journal || '').toLowerCase();
+        if (journalQ && !journ.includes(journalQ)) return false;
 
-        // 8) Keyword
-        if (keywordQ) {
-            const kList = (r.keywords || []).join(' ').toLowerCase();
-            if (!kList.includes(keywordQ)) return false;
-        }
+        // Keyword
+        const kList = (r.keywords || []).join(' ').toLowerCase();
+        if (keywordQ && !kList.includes(keywordQ)) return false;
 
-        // 9) Citation count
-        const c = (r.citation_counts && r.citation_counts.forward) || 0;
+        // Citation count
+        const c = (r.citation_counts?.forward) || 0;
         if (c < minC || c > maxC) return false;
 
         return true;
